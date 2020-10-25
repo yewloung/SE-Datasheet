@@ -7,9 +7,11 @@ import time
 import os.path
 import sys
 import keyboard
+import styleframe
 
 # define list holders to store scraped data
 reference_data = []
+range_data = []
 section_data = []
 parameter_data = []
 value_data = []
@@ -21,6 +23,17 @@ ave_total_time = 0
 ave_time_left = 0
 input_file = r'ref.xlsx'
 output_file = r'SE_web_datasheet.xlsx'
+
+# function to deal with excel formating
+def autosize_excel_columns_df(worksheet, df, offset=0):
+    for idx, col in enumerate(df):
+        series = df[col]
+        max_len = max((series.astype(str).map(len).max(), len(str(series.name)))) + 1
+        worksheet.set_column(idx + offset, idx + offset, max_len)
+
+def autosize_excel_columns(worksheet, df):
+    autosize_excel_columns_df(worksheet, df.index.to_frame())
+    autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
 
 # function to scrape the web data base on given url
 def get_web_datasheet(url):
@@ -34,7 +47,7 @@ def get_web_datasheet(url):
         page = req.get(url, headers=headers, timeout=5)
 
         text_page = page.text  # convert page into text format
-        text_page = text_page.replace('</br>', ' | ')  # replace </br> text with (space)|(space)
+        text_page = text_page.replace('</br>', '|')  # replace </br> text with |
 
         # print(text_page)
 
@@ -46,7 +59,7 @@ def get_web_datasheet(url):
         # print(len(list(head_tag)), len(list(head_content)), len(list(head_content0)))
 
         #  Get product reference name
-        reference = soup.find('h1', {'data-autotests-id': 'mobile-product-id'})
+        reference = soup.find('div', {'data-autotests-id': 'product-id'})
         reference = reference.next
         reference = reference.string.replace(" ", "")
 
@@ -124,12 +137,93 @@ def main():
                                'Parameters': parameter_data,
                                'Value': value_data})
 
+            # remove newline character in front of the text
+            df['Reference'] = df['Reference'].replace('\n', ' ', regex=True)
+
+            # split string into multiple lines when detecting "|" character
+            df['Value'] = df['Value'].str.replace('|', '\n')
+
             # put the status of scraped reference in col 3
             ref_df[2] = status
 
-            df.to_excel(output_file, index=False, header=True)  # store all scraped data into output_file
-            ref_df.to_excel(input_file, index=False, header=None)  # update status of scraped status back to input_file
-            #print(df)
+            # generate pivot table, put 'Value' for each 'Reference' arranged into column
+            pivot = df.pivot_table(index=['Section', 'Parameters'],
+                                   columns=['Reference'],
+                                   values=['Value'],
+                                   aggfunc=lambda x: ' '.join(x))
+
+            pivot1 = df.pivot_table(index=['Section', 'Parameters'],
+                                    values=['Value'],
+                                    aggfunc=lambda x: '\n'.join(x))
+
+            #pivot1 = df.pivot_table(index=['Section', 'Parameters', 'Value'],
+            #                        values=['Value'],
+            #                        aggfunc='count')
+
+            #pivot1 = df.pivot_table(index=['Section', 'Parameters', 'Value'],
+            #                        columns=['Reference'],
+            #                        values=['Reference'],
+            #                        aggfunc='count',
+            #                        fill_value=0)
+
+            print(pivot1)
+
+            ''' --------------------  export data frame to excel operation   -------------------- '''
+            writer = pd.ExcelWriter(output_file, engine='xlsxwriter')  # associated panda to xlsxwriter engine
+
+            # update status of web scrape to "status" worksheet
+            ref_df.to_excel(writer, index=True, header=False, sheet_name='status')
+
+            # export df data frame to "raw_datasheet" worksheet
+            df.to_excel(writer, index=True, header=True, sheet_name='raw_datasheet')
+
+            # export df data frame to "pivot_datasheet" worksheet
+            pivot.to_excel(writer, index=True, header=True, sheet_name='pivot_datasheet')
+
+            # export df data frame to "pivot1_datasheet" worksheet
+            pivot1.to_excel(writer, index=True, header=True, sheet_name='pivot1_datasheet')
+
+            # update status of scraped status back to input_file
+            #ref_df.to_excel(input_file, index=False, header=None)
+
+            # assign exported datasheet workbook variable name as "workbook"
+            workbook = writer.book
+
+            # setup format condition to be used
+            text_align_format = workbook.add_format()  # Add text alignment format
+            text_align_format.set_text_wrap(True)
+            text_align_format.set_align('top')
+            text_align_format.set_align('left')
+
+            # assign worksheet "status" variable name as "status_worksheet"
+            status_worksheet = writer.sheets['status']
+            autosize_excel_columns(status_worksheet, ref_df)
+
+            # assign worksheet "raw_datasheet" variable name as "df_worksheet"
+            df_worksheet = writer.sheets['raw_datasheet']
+            df_worksheet.set_column('B:Z', 20, text_align_format)
+            autosize_excel_columns(df_worksheet, df)
+            #df_worksheet.set_column('E:E', 90, text_align_format)
+            df_worksheet.set_column(first_col=4, last_col=4, width=90, cell_format=text_align_format)
+            df_worksheet.freeze_panes(1, 0)
+
+            # assign worksheet "pivot_datasheet" variable name as "pivot_worksheet"
+            pivot_worksheet = writer.sheets['pivot_datasheet']
+            pivot_worksheet.set_column('A:A', 20, text_align_format)
+            pivot_worksheet.set_column('B:B', 40, text_align_format)
+            #autosize_excel_columns(pivot_worksheet, pivot)
+            pivot_worksheet.set_column(first_col=2, last_col=found_count + 1, width=50, cell_format=text_align_format)
+            pivot_worksheet.freeze_panes(3, 2)
+
+            # assign worksheet "pivot1_datasheet" variable name as "pivot1_worksheet"
+            pivot1_worksheet = writer.sheets['pivot1_datasheet']
+            pivot1_worksheet.set_column('A:A', 20, text_align_format)
+            pivot1_worksheet.set_column('B:B', 40, text_align_format)
+            #autosize_excel_columns(pivot1_worksheet, pivot1)
+            pivot1_worksheet.set_column(first_col=2, last_col=found_count + 1, width=110, cell_format=text_align_format)
+            pivot1_worksheet.freeze_panes(1, 2)
+
+            writer.save()
 
             # get total program execution time
             print('\n--- Total program run time is %s seconds ---' % round(time.time() - start_time, 2))
@@ -138,10 +232,13 @@ def main():
         else:
             print('\n')
             print('************************************************************************************')
+            print('')
             print('No data found in', input_file)
-            print('Input your target commercial references in column A')
+            print('Input your target commercial references in column A of', input_file)
             print('Re-run the program once completed')
-            print('************************************************************************************')
+            print('')
+            print('**************************** Windows Close in 5 Seconds ****************************')
+            time.sleep(5)
             exit()
 
     else:
@@ -150,10 +247,14 @@ def main():
         workbook.close()
         print('\n')
         print('************************************************************************************')
+        print('')
         print(input_file, 'file not found.')
-        print('Empty', input_file, 'is created. Input your target commercial references in column A')
+        print('Empty', input_file, 'is created into same folder location of this program.')
+        print('Input your target commercial references in column A of', input_file)
         print('Re-run the program once completed')
-        print('************************************************************************************')
+        print('')
+        print('**************************** Windows Close in 5 Seconds ****************************')
+        time.sleep(5)
         exit()
 
 if __name__ == "__main__":

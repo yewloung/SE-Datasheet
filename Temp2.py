@@ -1,35 +1,20 @@
-from bs4 import BeautifulSoup
+import pandas as pd
 
-htmlText = """<tr>
-  <td>
-    This
-    <a class="tip info" href="blablablablabla">is a first</a>
-    sentence
-    <br>
-    This
-    <a class="tip info" href="blablablablabla">is a second</a>
-    sentence
-    <br>This
-    <a class="tip info" href="blablablablabla">is a third</a>
-    sentence
-    <br>
-  </td>
-</tr>"""
+# Create a Pandas dataframe from the data.
+df = pd.DataFrame({'Data': ['Its\\na bum\\nwrap', 20, 30, 'Test is test', 15, 30, 45]})
 
-# these two steps are to put everything into one line. may not be necessary for you
-htmlText = htmlText.replace("\n", " ")
-while "  " in htmlText:
-    htmlText = htmlText.replace("  ", " ")
+# Create a Pandas Excel writer using XlsxWriter as the engine.
+writer = pd.ExcelWriter('pandas_simple.xlsx', engine='xlsxwriter')
 
-# import into bs4
-soup = BeautifulSoup(htmlText, "lxml")
+# Convert the dataframe to an XlsxWriter Excel object.
+df.to_excel(writer, sheet_name='Sheet1')
 
-# using https://stackoverflow.com/a/34640357/5702157
-for br in soup.find_all("br"):
-    br.replace_with("\n")
+workbook  = writer.book
+worksheet = writer.sheets['Sheet1']
 
-parsedText = soup.get_text()
-while "\n " in parsedText:
-    parsedText = parsedText.replace("\n ", "\n") # remove spaces at the start of new lines
-print(parsedText.strip())
+wrap_format = workbook.add_format({'text_wrap': True})
 
+worksheet.set_column('B:B', 20, wrap_format)
+
+# Close the Pandas Excel writer and output the Excel file.
+writer.save()
