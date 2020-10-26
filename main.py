@@ -15,6 +15,7 @@ range_data = []
 section_data = []
 parameter_data = []
 value_data = []
+param_id = []
 status = []
 found_count = 0
 notfound_count = 0
@@ -112,8 +113,10 @@ def main():
         ref_df = pd.read_excel(input_file, header=None)
 
         if (ref_df.empty != True):
-            ref_df[1] = 'https://www.se.com/sg/en/product/' + ref_df[0] + '/'  # create url for each references @ 2nd col
+            ref_df[1] = 'https://www.se.com/ww/en/product/' + ref_df[0] + '/'  # create url for each references @ 2nd col
             urls = ref_df[1].tolist()  # put url into list
+            # https://www.se.com/ww/en/product/RM17TE00/
+            # https://www.se.com/sg/en/product/RM17TE00/
             # print(urls)
 
             # loop through all urls to scrap all data into respective list holders
@@ -143,14 +146,22 @@ def main():
             # split string into multiple lines when detecting "|" character
             df['Value'] = df['Value'].str.replace('|', '\n')
 
+            # add param id information
+            df['Param_ID'] = df['Reference'] + df['Parameters']
+
+            df['Spec_ID'] = df['Param_ID']
+            df['Spec_Data'] = df['Value'] + 'XXXX'
+
             # put the status of scraped reference in col 3
             ref_df[2] = status
 
             # generate pivot table, put 'Value' for each 'Reference' arranged into column
             pivot = df.pivot_table(index=['Section', 'Parameters'],
                                    columns=['Reference'],
-                                   values=['Value'],
-                                   aggfunc=lambda x: ' '.join(x))
+                                   values=['Value', 'Spec_Data'],
+                                   aggfunc={'Value': lambda x: ' '.join(x),
+                                            'Spec_Data': lambda x: ' '.join(x)})
+            pivot = pivot.swaplevel(0, 1, axis=1).sort_index(axis=1)  # swap column levels
 
             pivot1 = df.pivot_table(index=['Section', 'Parameters'],
                                     values=['Value'],
@@ -205,6 +216,9 @@ def main():
             autosize_excel_columns(df_worksheet, df)
             #df_worksheet.set_column('E:E', 90, text_align_format)
             df_worksheet.set_column(first_col=4, last_col=4, width=90, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=5, last_col=5, width=40, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=6, last_col=6, width=40, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=7, last_col=7, width=95, cell_format=text_align_format)
             df_worksheet.freeze_panes(1, 0)
 
             # assign worksheet "pivot_datasheet" variable name as "pivot_worksheet"
@@ -212,7 +226,7 @@ def main():
             pivot_worksheet.set_column('A:A', 20, text_align_format)
             pivot_worksheet.set_column('B:B', 40, text_align_format)
             #autosize_excel_columns(pivot_worksheet, pivot)
-            pivot_worksheet.set_column(first_col=2, last_col=found_count + 1, width=50, cell_format=text_align_format)
+            pivot_worksheet.set_column(first_col=2, last_col=(found_count + 1)*2, width=50, cell_format=text_align_format)
             pivot_worksheet.freeze_panes(3, 2)
 
             # assign worksheet "pivot1_datasheet" variable name as "pivot1_worksheet"
