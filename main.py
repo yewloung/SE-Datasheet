@@ -10,6 +10,10 @@ import keyboard
 import styleframe
 
 # define list holders to store scraped data
+app_name = 'SE_Datasheet_Scrape'
+version = 'V1.0'
+author = 'YL Liew'
+
 reference_data = []
 range_data = []
 section_data = []
@@ -114,6 +118,7 @@ def main():
     global output_file
     global spec_file
     global spec_worksheet
+    global version
 
     if (os.path.isfile(input_file) == True):
         # read ref.xlsx, expect reference name must be put at col 1
@@ -122,6 +127,36 @@ def main():
         if (os.path.isfile(spec_file) == True):
             # read SE_spec.xlsx
             spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
+            print('##########################################################################################')
+            print(app_name, 'is used for scraping datasheet information from the se.com')
+            print('And after, perform pivoting the product specification into scraped datasheet ')
+            print('to facilitate comparison & checking.')
+            print('\n')
+            print('ver: ', version, '                                                       ', 'developed by: ', author)
+            print('##########################################################################################')
+            to_continue = input('Hit <Enter> to start the program .....')
+            while True:
+                if to_continue == '':
+                    print('\n')
+                    break
+                else:
+                    to_continue = input('Hit <Enter> to start the program .....')
+        else:
+            print('##########################################################################################')
+            print(app_name, 'is used for scraping datasheet information from the se.com')
+            print('Product specification,', spec_file, 'file is not found.')
+            print('Hence, the program will only performing data scraping operation without pivoting')
+            print('the product specification into scraped datasheet')
+            print('\n')
+            print('ver: ', version, '                                                       ', 'developed by: ', author)
+            print('##########################################################################################')
+            to_continue = input('Hit <Enter> to start the program .....')
+            while True:
+                if to_continue == '':
+                    print('\n')
+                    break
+                else:
+                    to_continue = input('Hit <Enter> to start the program .....')
 
         if (ref_df.empty != True):
             ref_df[1] = 'https://www.se.com/ww/en/product/' + ref_df[0] + '/'  # create url for each references @ 2nd col
