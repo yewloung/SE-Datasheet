@@ -127,29 +127,33 @@ def main():
         if (os.path.isfile(spec_file) == True):
             # read SE_spec.xlsx
             spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
-            print('##########################################################################################')
+            print('###################################################################################################')
             print(app_name, 'is used for scraping datasheet information from the se.com')
             print('And after, perform pivoting the product specification into scraped datasheet ')
             print('to facilitate comparison & checking.')
             print('\n')
-            print('ver: ', version, '                                                       ', 'developed by: ', author)
-            print('##########################################################################################')
-            to_continue = input('Hit <Enter> to start the program .....')
+            print('ver: ', version, ' ' * 64, 'developed by: ', author)
+            print('###################################################################################################')
+            to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
             while True:
                 if to_continue == '':
                     print('\n')
                     break
+                elif to_continue == 'e':
+                    print('Program is aborting in 5 seconds.....')
+                    time.sleep(5)
+                    exit()
                 else:
-                    to_continue = input('Hit <Enter> to start the program .....')
+                    to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
         else:
-            print('##########################################################################################')
+            print('###################################################################################################')
             print(app_name, 'is used for scraping datasheet information from the se.com')
             print('Product specification,', spec_file, 'file is not found.')
             print('Hence, the program will only performing data scraping operation without pivoting')
             print('the product specification into scraped datasheet')
             print('\n')
-            print('ver: ', version, '                                                       ', 'developed by: ', author)
-            print('##########################################################################################')
+            print('ver: ', version, ' ' * 64, 'developed by: ', author)
+            print('###################################################################################################')
             to_continue = input('Hit <Enter> to start the program .....')
             while True:
                 if to_continue == '':
@@ -355,8 +359,3 @@ if __name__ == "__main__":
     # capture start of program execution time
     start_time = time.time()
     main()
-
-
-
-
-

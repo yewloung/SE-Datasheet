@@ -31,14 +31,14 @@ input_file = r'product spec.xlsx'
 output_file = r'SE_spec.xlsx'
 sample_file = r'spec_format.xlsx'
 
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.width', None)
-pd.set_option('display.max_colwidth', -1)
+#pd.set_option('display.max_rows', None)
+#pd.set_option('display.max_columns', None)
+#pd.set_option('display.width', None)
+#pd.set_option('display.max_colwidth', -1)
 
 def get_sample_spec():
     sample_spec_df = pd.read_excel(sample_file, header=None)
-    print('------------------------ Example of Original Product Specification Format ---------------------------------')
+    print('---------------- Example of Original Product Specification Format You Should First Develop ----------------')
     print(sample_spec_df)
     print('\n')
     print('Note:')
@@ -49,10 +49,10 @@ def get_sample_spec():
     print('- e.g: Additional fix specification value column << second_value_col >> is at 3')
     print('- e.g: Additional fix specification value column << third_value_col >> is at 2')
     print('- e.g: Additional fix specification value column << forth_value_col >> is at 1')
-    print('------------------------------ End of Product Specification Format ----------------------------------------')
+    print('---------------------------------- End of Product Specification Format ------------------------------------')
     print('\n')
 
-    print('#############################################################################################')
+    print('###########################################################################################################')
     print(app_name, 'is used for parsing original product specification file format,', input_file)
     print('as per the example above into 2 worksheets with specific format recognized by')
     print('SE_Datasheet_Scrape program.')
@@ -66,15 +66,19 @@ def get_sample_spec():
     print('- OR, you could input your choice of column and row of data of your original product specification to allow')
     print('the program to parse if your original product specification format is different from the example')
     print('\n')
-    print('ver: ', version, '                                                         ', 'developed by: ', author)
-    print('#############################################################################################')
-    to_continue = input('Hit <Enter> to start the program .....')
+    print('ver: ', version, ' ' * 72, 'developed by: ', author)
+    print('###########################################################################################################')
+    to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
     while True:
         if to_continue == '':
             print('\n')
             break
+        elif to_continue == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
+            exit()
         else:
-            to_continue = input('Hit <Enter> to start the program .....')
+            to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
 
 
 def get_user_input():
@@ -86,63 +90,75 @@ def get_user_input():
     global forth_value_col
 
     while True:
-        num = input('specification column title row [hit <Enter> to accept default value 3]: ')
+        num = input('specification column title row [hit <Enter> for default value 3, character < e > to exit]: ')
         if num.isdigit():
             reference_row = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
     while True:
-        num = input('specification parameter << param_col >> [hit <Enter> to accept default value 5]: ')
+        num = input('specification parameter << param_col >> [hit <Enter> for default value 5, character < e > to exit]: ')
         if num.isdigit():
             param_col = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
     while True:
-        num = input('First specification value column << First_value_col >> [hit <Enter> to accept default value 9]: ')
+        num = input('First specification value column << First_value_col >> [hit <Enter> for default value 9, character < e > to exit]: ')
         if num.isdigit():
             first_value_col = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
     while True:
-        num = input('Fix specification value column << second_value_col >> [hit <Enter> to accept default value 3]: ')
+        num = input('Fix specification value column << second_value_col >> [hit <Enter> for default value 3, character < e > to exit]: ')
         if num.isdigit():
             second_value_col = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
     while True:
-        num = input('Fix specification value column << third_value_col >> [hit <Enter> to accept default value 2]: ')
+        num = input('Fix specification value column << third_value_col >> [hit <Enter> for default value 2, character < e > to exit]: ')
         if num.isdigit():
             third_value_col = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
     while True:
-        num = input('Fix specification value column << forth_value_col >> [hit <Enter> to accept default value 1]: ')
+        num = input('Fix specification value column << forth_value_col >> [hit <Enter> for default value 1, character < e > to exit]: ')
         if num.isdigit():
             forth_value_col = int(num)
             break
         elif num == '':
             break
         elif num == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
             exit()
 
 
@@ -159,73 +175,116 @@ def main():
     global third_value_col
     global forth_value_col
 
+    global param_id
+    global value_data
+    global status
+    global valid_sheet
+
     if os.path.isfile(input_file) == True:
         df = pd.ExcelFile(input_file)  # read product spec.xlsx
 
-        sheet_to_df_map = {}  # dictionary holder to hold data frames of each worksheet
+        # dictionary holder to hold data read from product spec.xlsx
+        sheet_to_df_map = {}
+        new_sheet_to_df_map = {}  # not used
+
+        # dataframe holder to hold the processed Param_ID, Value from product spec.xlsx
         temp_df = pd.DataFrame(columns=['Param_ID', 'Value'])
         final_df = pd.DataFrame(columns=['Param_ID', 'Value'])
 
+        # check if all the worksheets in product spec.xlsx are empty
+        # if all are empty, record the count of filled worksheet into variable, count_filled_sheet = 0
         count_filled_sheet = 0
         for sheet_name in df.sheet_names:
-            # check every worksheet data format is a valid specification format
-            # criteria: every columns headers before the 1st references specification value column MUST NOT empty
-            # rows = df.shape[0] | cols = df.shape[1]
-            sheet_to_df_map[sheet_name] = df.parse(sheet_name)  # convert every worksheet content into dictionary
+            # parse every filled worksheets in product spec.xlsx into dictionary
+            sheet_to_df_map[sheet_name] = df.parse(sheet_name, header=None)
             if sheet_to_df_map[sheet_name].empty != True:
                 count_filled_sheet = count_filled_sheet + 1
 
+        # if count_filled_sheet = 0, then go to print message and abort program without further processing
         if count_filled_sheet > 0:
             for sheet_name in df.sheet_names:
-                sheet_to_df_map[sheet_name] = df.parse(sheet_name)  # convert every worksheet content into dictionary
+                # parse every filled worksheets in product spec.xlsx into dictionary
+                sheet_to_df_map[sheet_name] = df.parse(sheet_name, header=None)
+                #sheet_to_df_map[sheet_name] = sheet_to_df_map[sheet_name].applymap(str)  # convert whole dataframe to string
 
-                # ensure defined 'reference row' will not exceed the no. of rows of data frame
+                # ensure 'reference row' will not exceed the no. of rows of data frame
                 if (sheet_to_df_map[sheet_name].shape[0] - 1) < reference_row:
-                    row_length = sheet_to_df_map[sheet_name].shape[0] - 1
+                    Temp_reference_row = sheet_to_df_map[sheet_name].shape[0] - 1
                 else:
-                    row_length = reference_row - 1
+                    Temp_reference_row = reference_row
 
-                # ensure defined 'first_value_col' will not exceed the no. of cols of data frame
+                # ensure 'first_value_col' will not exceed the no. of cols of data frame
                 if (sheet_to_df_map[sheet_name].shape[1] - 1) < first_value_col:
-                    col_length = sheet_to_df_map[sheet_name].shape[1] - 1
+                    Temp_first_value_col = sheet_to_df_map[sheet_name].shape[1] - 1
                 else:
-                    col_length = first_value_col - 1
+                    Temp_first_value_col = first_value_col
 
-                # put row 3 as column name and remove row 1 & 2
-                temp_header = sheet_to_df_map[sheet_name].iloc[row_length]
-                for i in range(len(temp_header)):
-                    if temp_header[i] != temp_header[i]:
-                        temp_header[i] = 'col' + str(i)
-                sheet_to_df_map[sheet_name].iloc[row_length] = temp_header
-                sheet_to_df_map[sheet_name].columns = list(temp_header)
-                sheet_to_df_map[sheet_name] = sheet_to_df_map[sheet_name][row_length + 1:]
+                # get the new col header content base on selected row, reference_row
+                temp_headers = list(sheet_to_df_map[sheet_name].iloc[Temp_reference_row])
+
+                # fill the new empty col header content with col? format to ensure there are not empty string
+                for index, str_text in enumerate(temp_headers):
+                    if str_text != str_text:
+                        temp_headers[index] = 'col' + str(index)
+
+                sheet_to_df_map[sheet_name].columns = temp_headers  # set new col header
+
+                # reset the dataframe ignoring row before the selected row of original data frame for its header content
+                sheet_to_df_map[sheet_name] = sheet_to_df_map[sheet_name][Temp_reference_row + 1:]
                 sheet_to_df_map[sheet_name].reset_index(drop=True, inplace=True)
+                #sheet_to_df_map.update({sheet_name: sheet_to_df_map[sheet_name]})
 
                 # when all the columns' name before the defined 1st column data are not contain "col" wording,
                 # it is considered valid data frame
-                partial_temp_header = sheet_to_df_map[sheet_name].columns[0:col_length]
+                partial_temp_header = list(sheet_to_df_map[sheet_name].columns[0:Temp_first_value_col])
+                partial_temp_header = list(map(lambda x: str(x), partial_temp_header))
                 if sum(1 for s in partial_temp_header if 'col' in s) == 0:
                     valid_sheet.append(sheet_name)
 
-                # print('Worksheet -->', sheet_name, '|',
-                #      'Type -->', type(sheet_to_df_map[sheet_name]), '|',
-                #      'Col / Column Qty -->', col_length, '/', sheet_to_df_map[sheet_name].shape[1],
-                #      'Row / Row Qty -->', row_length, '/', sheet_to_df_map[sheet_name].shape[0],
-                #      'Empty? -->', sheet_to_df_map[sheet_name].empty)
-                # print(partial_temp_header)
-
+            print('\n-------------------------------------------------------------------------------------------------')
             print('Valid Column -->', valid_sheet)
+            print('reference_row -->', reference_row)
+            print('param_col -->', param_col)
+            print('first_value_col -->', first_value_col)
+            print('second_value_col -->', second_value_col)
+            print('third_value_col -->', third_value_col)
+            print('forth_value_col -->', forth_value_col)
+            print('\n-------------------------------------------------------------------------------------------------')
 
-            ''' --------------------  create specification look-up format   -------------------- '''
+            ''' ------------------------------  create specification look-up format   ------------------------------ '''
             final_count = 0
             for sheet_name in valid_sheet:
                 col_count = sheet_to_df_map[sheet_name].shape[1] - first_value_col
-                row_count = sheet_to_df_map[sheet_name].shape[0] - 0
+                row_count = sheet_to_df_map[sheet_name].shape[0]
                 total_count = col_count * row_count
                 final_count = final_count + total_count
                 total_spec_count = final_count
 
             for sheet_name in valid_sheet:
+                # ensure 'reference row' will not exceed the no. of rows of data frame
+                if (sheet_to_df_map[sheet_name].shape[0] - 1) < reference_row:
+                    reference_row = sheet_to_df_map[sheet_name].shape[0] - 1
+
+                # ensure 'first_value_col' will not exceed the no. of cols of data frame
+                if (sheet_to_df_map[sheet_name].shape[1] - 1) < first_value_col:
+                    first_value_col = sheet_to_df_map[sheet_name].shape[1] - 1
+
+                # ensure 'param_col' will not exceed the no. of cols of data frame
+                if (sheet_to_df_map[sheet_name].shape[1] - 1) < param_col:
+                    param_col = sheet_to_df_map[sheet_name].shape[1] - 1
+
+                # ensure 'second_value_col' will not exceed the no. of cols of data frame
+                if (sheet_to_df_map[sheet_name].shape[1] - 1) < second_value_col:
+                    second_value_col = sheet_to_df_map[sheet_name].shape[1] - 1
+
+                # ensure 'third_value_col' will not exceed the no. of cols of data frame
+                if (sheet_to_df_map[sheet_name].shape[1] - 1) < third_value_col:
+                    third_value_col = sheet_to_df_map[sheet_name].shape[1] - 1
+
+                # ensure 'forth_value_col' will not exceed the no. of cols of data frame
+                if (sheet_to_df_map[sheet_name].shape[1] - 1) < forth_value_col:
+                    forth_value_col = sheet_to_df_map[sheet_name].shape[1] - 1
+
                 sheet_to_df_map[sheet_name] = sheet_to_df_map[sheet_name].fillna('')
                 for i in range(first_value_col, sheet_to_df_map[sheet_name].shape[1]):
                     value_data = sheet_to_df_map[sheet_name].astype(str).iloc[:, i] + ' | ' \
@@ -235,27 +294,26 @@ def main():
                     #sheet_to_df_map[sheet_name].iloc[:, i] = value_data
 
                     ref = str(sheet_to_df_map[sheet_name].columns[i])
-                    final_count = final_count - 1
-
-                    for y in range(0, sheet_to_df_map[sheet_name].shape[0] - 1):
+                    for y in range(sheet_to_df_map[sheet_name].shape[0]):
                         param = sheet_to_df_map[sheet_name].astype(str).iloc[y, param_col]
                         param_id.append(ref + param)
                         final_count = final_count - 1
                         print(final_count, ref + param)
 
-                    temp_df['Param_ID'] = pd.Series(param_id)
-                    temp_df['Value'] = value_data
+                    temp_df['Param_ID'] = pd.Series(param_id).astype(str)
+                    temp_df['Value'] = value_data.astype(str)
                     final_df = final_df.append(temp_df, ignore_index=True)  # Final sorted look up specification
-                    param_id.clear()
 
-            ''' --------------------  Clean Data frame   -------------------- '''
+                    param_id.clear()  # clear dataframe for looping reuse
+
+            ''' ---------------------------------------  Clean Data frame   ---------------------------------------- '''
             final_df['Value'] = final_df['Value'].str.replace(r'(\s[|]\s,,)', '')  # replace ' | ,,' pattern with nothing
             final_df['Value'] = final_df['Value'].str.replace(r'(,,)', '')  # replace ',,' pattern with nothing
             final_df['Value'] = final_df['Value'].str.replace(r'^(\s[|]\s,)', '')  # replace ' | ,' pattern with nothing
             final_df['Value'] = final_df['Value'].str.replace(r'^(\s[|]\s)', '')  # replace ' | ' pattern with nothing
             final_df2 = final_df.groupby(['Param_ID'])['Value'].apply('\n'.join).reset_index()
 
-            ''' --------------------  export data frame to excel operation   -------------------- '''
+            ''' -----------------------------  export data frame to excel operation   ------------------------------ '''
             writer = pd.ExcelWriter(output_file, engine='xlsxwriter')  # associated panda to xlsxwriter engine
 
             # create 'spec' worksheet to hold all spec data for all references facilitating look up
@@ -298,13 +356,13 @@ def main():
 
         else:
             print('\n')
-            print('************************************************************************************')
+            print('***************************************************************************************************')
             print('')
             print('No data found in', input_file)
             print('Input respective reference specification into', input_file)
             print('Re-run the program once completed')
             print('')
-            print('**************************** Windows Close in 5 Seconds ****************************')
+            print('************************************ Windows Close in 5 Seconds ***********************************')
             time.sleep(5)
             exit()
 
@@ -313,13 +371,13 @@ def main():
         worksheet = workbook.add_worksheet('specification')
         workbook.close()
         print('\n')
-        print('************************************************************************************')
+        print('***************************************************************************************************')
         print('')
         print(input_file, 'file not found.')
         print('Please put', input_file, 'into same folder location of this program.')
         print('Re-run the program once completed')
         print('')
-        print('**************************** Windows Close in 5 Seconds ****************************')
+        print('************************************ Windows Close in 5 Seconds ***********************************')
         time.sleep(5)
         exit()
 
