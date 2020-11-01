@@ -1,13 +1,12 @@
-import thread
-
-def input_thread(a_list):
-    raw_input()
-    a_list.append(True)
-
-def do_stuff():
-    a_list = []
-    thread.start_new_thread(input_thread, (a_list,))
-    while not a_list:
-        stuff()
 
 
+#url_format = 'https://www.se.com/ww/en/product/<ref>'
+url_format = 'https://www.se.com/ww/en/<ref>product/<ref>'
+
+ref = 'RE17RAMU'
+
+url = url_format.replace('<ref>', ref) + '/'
+#url = url_format[0:8]
+
+print(url)
+print('cm' not in url)

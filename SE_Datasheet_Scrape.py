@@ -1,5 +1,6 @@
 import requests as req
 from bs4 import BeautifulSoup
+import validators
 import re
 import xlsxwriter
 import pandas as pd
@@ -13,13 +14,22 @@ import styleframe
 app_name = 'SE_Datasheet_Scrape'
 version = 'V1.0'
 author = 'YL Liew'
-
+default_url_format = 'https://www.se.com/ww/en/product/<ref>/'
+additional_url_format = ['https://www.se.com/us/en/product/<ref>/',
+                         'https://www.se.com/in/en/product/<ref>/',
+                         'https://www.se.com/fr/en/product/<ref>/',
+                         'https://www.se.com/fr/fr/product/<ref>/',
+                         'https://www.schneider-electric.cn/zh/product/<ref>/',
+                         'https://www.schneider-electric.cn/en/product/<ref>/']
+other_urls = []
 reference_data = []
 range_data = []
 section_data = []
 parameter_data = []
 value_data = []
 param_id = []
+run_ref = []
+run_url = []
 status = []
 found_count = 0
 notfound_count = 0
@@ -41,6 +51,75 @@ def autosize_excel_columns_df(worksheet, df, offset=0):
 def autosize_excel_columns(worksheet, df):
     autosize_excel_columns_df(worksheet, df.index.to_frame())
     autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+
+def get_startup_message():
+    if (os.path.isfile(spec_file) == True):
+        # read SE_spec.xlsx
+        #spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
+        print('###################################################################################################')
+        print(app_name, 'is used for scraping datasheet information from the se.com')
+        print('using default https://www.se.com/ww/en/product/<ref> url format & specific countries SE site: US,')
+        print('India, France & China.')
+        print('You could change to your other specific list of url format after hitting <Enter>,')
+        print('allowing the program to apply your list in case datasheet is not found in the default url.')
+        print('After performing web scraping operating, product specification will be pivoted into scraped ')
+        print('datasheet to facilitate comparison & checking.')
+        print('\n')
+        print('ver: ', version, ' ' * 64, 'developed by: ', author)
+        print('###################################################################################################')
+        to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
+        while True:
+            if to_continue == '':
+                print('\n')
+                break
+            elif to_continue == 'e':
+                print('Program is aborting in 5 seconds.....')
+                time.sleep(5)
+                exit()
+            else:
+                to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
+    else:
+        print('###################################################################################################')
+        print(app_name, 'is used for scraping datasheet information from the se.com')
+        print('using default https://www.se.com/ww/en/product/<ref> url format & specific countries SE site: US,')
+        print('India, France & China.')
+        print('You could change to your other specific list of url format after hitting <Enter>,')
+        print('allowing the program to apply your list in case datasheet is not found in the default url.')
+        print('Due to product specification,', spec_file, 'file is not found / created.')
+        print('Hence, the program will only performing data scraping operation without pivoting')
+        print('the product specification into scraped datasheet')
+        print('\n')
+        print('ver: ', version, ' ' * 64, 'developed by: ', author)
+        print('###################################################################################################')
+        to_continue = input('Hit <Enter> to start the program .....')
+        while True:
+            if to_continue == '':
+                print('\n')
+                break
+            else:
+                to_continue = input('Hit <Enter> to start the program .....')
+
+def get_other_url(default_url_format):
+    other_url_list = [default_url_format]
+    other_url_list.extend(additional_url_format)
+
+    while True:
+        other_url = input('\nKey in other URL, hit <Enter> to end your input, character < e > to exit: ')
+        #valid_url = validators.url(other_url)
+
+        if other_url == '':
+            return other_url_list
+        elif '<ref>' not in other_url:
+            print('No <ref> place folder for commercial reference found in your string,', other_url, 'is ignored.')
+        elif other_url[0:8] != 'https://':
+            other_url = 'https://' + other_url
+            other_url_list.append(other_url)
+        elif other_url == 'e':
+            print('Program is aborting in 5 seconds.....')
+            time.sleep(5)
+            exit()
+        else:
+            other_url_list.append(other_url)
 
 # function to scrape the web data base on given url
 def get_web_datasheet(url):
@@ -119,70 +198,39 @@ def main():
     global spec_file
     global spec_worksheet
     global version
+    global other_urls
 
     if (os.path.isfile(input_file) == True):
         # read ref.xlsx, expect reference name must be put at col 1
         ref_df = pd.read_excel(input_file, header=None)
+        ref_status_df = pd.DataFrame()
 
-        if (os.path.isfile(spec_file) == True):
-            # read SE_spec.xlsx
-            spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
-            print('###################################################################################################')
-            print(app_name, 'is used for scraping datasheet information from the se.com')
-            print('And after, perform pivoting the product specification into scraped datasheet ')
-            print('to facilitate comparison & checking.')
-            print('\n')
-            print('ver: ', version, ' ' * 64, 'developed by: ', author)
-            print('###################################################################################################')
-            to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
-            while True:
-                if to_continue == '':
-                    print('\n')
-                    break
-                elif to_continue == 'e':
-                    print('Program is aborting in 5 seconds.....')
-                    time.sleep(5)
-                    exit()
-                else:
-                    to_continue = input('Hit <Enter> to start the program, character < e > to exit ..... ')
-        else:
-            print('###################################################################################################')
-            print(app_name, 'is used for scraping datasheet information from the se.com')
-            print('Product specification,', spec_file, 'file is not found.')
-            print('Hence, the program will only performing data scraping operation without pivoting')
-            print('the product specification into scraped datasheet')
-            print('\n')
-            print('ver: ', version, ' ' * 64, 'developed by: ', author)
-            print('###################################################################################################')
-            to_continue = input('Hit <Enter> to start the program .....')
-            while True:
-                if to_continue == '':
-                    print('\n')
-                    break
-                else:
-                    to_continue = input('Hit <Enter> to start the program .....')
-
+        count_scraped_url = 0
         if (ref_df.empty != True):
-            ref_df[1] = 'https://www.se.com/ww/en/product/' + ref_df[0] + '/'  # create url for each references @ 2nd col
-            urls = ref_df[1].tolist()  # put url into list
-            # https://www.se.com/ww/en/product/RM17TE00/
-            # https://www.se.com/sg/en/product/RM17TE00/
-            # print(urls)
+            refs = ref_df[0]  # put all the commercial reference into list
+            for i, ref in enumerate(refs):
+                for j, other_url in enumerate(other_urls):
+                    count_scraped_url = count_scraped_url + 1
+                    url = other_url.replace('<ref>', ref)
+                    result = get_web_datasheet(url)
+                    run_ref.append(ref)
+                    run_url.append(url)
+                    status.append(result)
 
-            # loop through all urls to scrap all data into respective list holders
-            for i, url in enumerate(urls):
-                result = get_web_datasheet(url)
-                status.append(result)
+                    ave_execution_time = round(time.time() - start_time)
+                    ave_total_time = (ave_execution_time / count_scraped_url) * ((len(refs) - 1 - i) + count_scraped_url)
+                    ave_time_left = round(ave_total_time - ave_execution_time, 0)
+                    print('[', ave_time_left, 'sec left ] ', i + 1, '/', len(refs), ': ', url, ' - ', result)
 
-                if result == 'Found':
-                    found_count = found_count + 1
-                else:
-                    notfound_count = notfound_count + 1
+                    if result == 'Found':
+                        found_count = found_count + 1
+                        break
+                    else:
+                        notfound_count = notfound_count + 1
 
-                ave_execution_time = round(time.time() - start_time)
-                ave_total_time = (ave_execution_time / (i + 1)) * (len(urls))
-                ave_time_left = round(ave_total_time - ave_execution_time, 0)
-                print('[', ave_time_left, 'sec left ] ', i + 1, '/', len(urls), ': ', url, ' - ', result)
+            ref_status_df[0] = run_ref
+            ref_status_df[1] = run_url
+            ref_status_df[2] = status
 
             # put all scraped data into data frame
             df = pd.DataFrame({'Reference': reference_data,
@@ -200,15 +248,10 @@ def main():
             df['Param_ID'] = df['Reference'] + df['Parameters']
 
             if (os.path.isfile(spec_file) == True):
+                spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
                 # map spec data
                 # df['Spec_ID'] = df['Param_ID'].map(spec_df.set_index('Param_ID')['Param_ID'])
                 df['Spec_Data'] = df['Param_ID'].map(spec_df.set_index('Param_ID')['Value']).astype(str)
-
-            #df['Spec_ID'] = df['Param_ID']
-            #df['Spec_Data'] = df['Value'] + 'XXXX'
-
-            # put the status of scraped reference in col 3
-            ref_df[2] = status
 
             # generate pivot table, put 'Value' for each 'Reference' arranged into column
             if (os.path.isfile(spec_file) == True):
@@ -245,7 +288,7 @@ def main():
             writer = pd.ExcelWriter(output_file, engine='xlsxwriter')  # associated panda to xlsxwriter engine
 
             # update status of web scrape to "status" worksheet
-            ref_df.to_excel(writer, index=True, header=False, sheet_name='status')
+            ref_status_df.to_excel(writer, index=True, header=False, sheet_name='status')
 
             # export df data frame to "raw_datasheet" worksheet
             df.to_excel(writer, index=True, header=True, sheet_name='raw_datasheet')
@@ -325,7 +368,12 @@ def main():
             print('\n')
             print('---', xls.sheet_names, 'worksheets are created into', output_file, ' ---')
             print('--- Total program run time is %s seconds ---' % round(time.time() - start_time, 2))
-            print('--- Total / found / not found :', len(urls), '/', found_count, '/', notfound_count, ' ---')
+            print('--- Total ref / found / not found / Total Trial:',
+                  len(refs), '/',
+                  found_count, '/',
+                  len(refs) - found_count, '/',
+                  found_count + notfound_count,
+                  ' ---')
 
         else:
             print('\n')
@@ -356,6 +404,10 @@ def main():
         exit()
 
 if __name__ == "__main__":
+    get_startup_message()
+    other_urls = get_other_url(default_url_format)
+    print('\n', 'List of trial URL: ', other_urls, '\n')
+
     # capture start of program execution time
     start_time = time.time()
     main()
