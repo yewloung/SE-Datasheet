@@ -41,6 +41,7 @@ input_file = r'ref.xlsx'
 output_file = r'SE_web_datasheet.xlsx'
 spec_file = r'SE_spec.xlsx'
 spec_worksheet = 'spec2'
+similiarity_TH = 20
 
 # function to deal with excel formating
 def autosize_excel_columns_df(worksheet, df, offset=0):
@@ -199,7 +200,7 @@ def main():
     global spec_file
     global spec_worksheet
     global version
-    global other_urls
+    global similiarity_TH
 
     if (os.path.isfile(input_file) == True):
         # read ref.xlsx, expect reference name must be put at col 1
@@ -255,6 +256,7 @@ def main():
                 df['Spec_Data'] = df['Param_ID'].map(spec_df.set_index('Param_ID')['Value']).astype(str)
 
                 # check data sheet value vs spec value similiarity
+                print('\n--- Compare similarity of tabulated datasheet value vs specification value ---')
                 for index, row in df.iterrows():
                     percent_similiarity = get_text_similiarity(row['Spec_Data'], row['Value'], 'xxxxx')
                     df.loc[index, 'Similiarity'] = percent_similiarity
@@ -264,9 +266,10 @@ def main():
             if (os.path.isfile(spec_file) == True):
                 pivot = df.pivot_table(index=['Section', 'Parameters'],
                                        columns=['Reference'],
-                                       values=['Value', 'Spec_Data'],
+                                       values=['Value', 'Spec_Data', 'Similiarity'],
                                        aggfunc={'Value': lambda x: ' '.join(x),
-                                                'Spec_Data': lambda x: ' '.join(x)})
+                                                'Spec_Data': lambda x: ' '.join(x),
+                                                'Similiarity': lambda x: x})
             else:
                 pivot = df.pivot_table(index=['Section', 'Parameters'],
                                        columns=['Reference'],
@@ -326,22 +329,22 @@ def main():
             greenBG_whiteTEXT.set_font_color('white')
             greenBG_whiteTEXT.set_bg_color('green')
 
+            ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "status" variable name as "status_worksheet"
             status_worksheet = writer.sheets['status']
             autosize_excel_columns(status_worksheet, ref_df)
             status_worksheet.set_zoom(80)
 
+            ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "raw_datasheet" variable name as "df_worksheet"
             df_worksheet = writer.sheets['raw_datasheet']
             df_worksheet.set_column('B:Z', 20, text_align_format)
             autosize_excel_columns(df_worksheet, df)
-            #df_worksheet.set_column('E:E', 90, text_align_format)
             df_worksheet.set_column(first_col=4, last_col=4, width=90, cell_format=text_align_format)
             df_worksheet.set_column(first_col=5, last_col=5, width=40, cell_format=text_align_format)
             df_worksheet.set_column(first_col=6, last_col=6, width=40, cell_format=text_align_format)
             df_worksheet.set_column(first_col=7, last_col=7, width=10, cell_format=text_align_format)
             # highlight cells color when similiarity exceed its defined threshold
-            similiarity_TH = 20
             df_worksheet.conditional_format(1, 7, df.shape[0], 7,
                                             {'type': 'cell',
                                              'criteria': '>=',
@@ -351,32 +354,54 @@ def main():
             df_worksheet.set_zoom(80)
             df_worksheet.autofilter(0, 0, df.shape[0], df.shape[1])
 
+            ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "pivot_datasheet" variable name as "pivot_worksheet"
             pivot_worksheet = writer.sheets['pivot_datasheet']
-            pivot_worksheet.set_column('A:A', 20, text_align_format)
-            pivot_worksheet.set_column('B:B', 40, text_align_format)
-            #autosize_excel_columns(pivot_worksheet, pivot)
-            pivot_worksheet.set_column(first_col=2, last_col=(found_count + 1)*2, width=50, cell_format=text_align_format)
+
+            # create list of columns with different width value to set columns width for multiple columns
+            col_widths = {}
+            col_widths[0] = 20
+            col_widths[1] = 40
+
+            for i in range(2, pivot.shape[1] + 2, 1):
+                col_widths[i] = 50
+
+            if (os.path.isfile(spec_file) == True):
+                print('--- Compare similarity of pivoted datasheet value vs specification value ---')
+                for i in range(2, pivot.shape[1] + 2, 3):
+                    col_widths[i] = 5
+                    pivot_worksheet.conditional_format(2, i, df.shape[0], i,
+                                                       {'type': 'cell',
+                                                        'criteria': '>=',
+                                                        'value': similiarity_TH,
+                                                        'format': greenBG_whiteTEXT})
+
+            for col_num, width in col_widths.items():
+                pivot_worksheet.set_column(first_col=col_num,
+                                           last_col=col_num,
+                                           width=width,
+                                           cell_format=text_align_format)
+
             pivot_worksheet.freeze_panes(3, 2)
             pivot_worksheet.set_zoom(80)
             pivot_worksheet.autofilter(1, 0, pivot.shape[0], pivot.shape[1] + 1)
 
+            ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "pivot1_datasheet" variable name as "pivot1_worksheet"
             pivot1_worksheet = writer.sheets['pivot1_datasheet']
             pivot1_worksheet.set_column('A:A', 20, text_align_format)
             pivot1_worksheet.set_column('B:B', 40, text_align_format)
-            #autosize_excel_columns(pivot1_worksheet, pivot1)
-            pivot1_worksheet.set_column(first_col=2, last_col=found_count + 1, width=110, cell_format=text_align_format)
+            pivot1_worksheet.set_column(first_col=2, last_col=pivot1.shape[1] + 1, width=110, cell_format=text_align_format)
             pivot1_worksheet.freeze_panes(1, 2)
             pivot1_worksheet.set_zoom(80)
             pivot1_worksheet.autofilter(0, 0, pivot1.shape[0], pivot1.shape[1] + 1)
 
+            ''' --------------------------------------------------------------------------------------------------- '''
             if (os.path.isfile(spec_file) == True):
                 # assign worksheet "spec" variable name as "spec_worksheet"
                 spec_worksheet = writer.sheets['spec']
                 spec_worksheet.set_column('A:A', 50, text_align_format)
                 spec_worksheet.set_column('B:B', 150, text_align_format)
-                # autosize_excel_columns(spec_worksheet, spec_df)
                 spec_worksheet.freeze_panes(1, 1)
                 spec_worksheet.set_zoom(80)
                 spec_worksheet.autofilter(0, 0, spec_df.shape[0], spec_df.shape[1])
