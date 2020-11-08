@@ -9,6 +9,7 @@ import os.path
 import sys
 import keyboard
 import styleframe
+from NLP_Modules import get_text_similiarity
 
 # define list holders to store scraped data
 app_name = 'SE_Datasheet_Scrape'
@@ -253,6 +254,12 @@ def main():
                 # df['Spec_ID'] = df['Param_ID'].map(spec_df.set_index('Param_ID')['Param_ID'])
                 df['Spec_Data'] = df['Param_ID'].map(spec_df.set_index('Param_ID')['Value']).astype(str)
 
+                # check data sheet value vs spec value similiarity
+                for index, row in df.iterrows():
+                    percent_similiarity = get_text_similiarity(row['Spec_Data'], row['Value'], 'xxxxx')
+                    df.loc[index, 'Similiarity'] = percent_similiarity
+                    #print(index, ':', row['Spec_Data'], ',', row['Value'], '-->', percent_similiarity)
+
             # generate pivot table, put 'Value' for each 'Reference' arranged into column
             if (os.path.isfile(spec_file) == True):
                 pivot = df.pivot_table(index=['Section', 'Parameters'],
@@ -315,6 +322,10 @@ def main():
             text_align_format.set_align('top')
             text_align_format.set_align('left')
 
+            greenBG_whiteTEXT = workbook.add_format()  # Add color format
+            greenBG_whiteTEXT.set_font_color('white')
+            greenBG_whiteTEXT.set_bg_color('green')
+
             # assign worksheet "status" variable name as "status_worksheet"
             status_worksheet = writer.sheets['status']
             autosize_excel_columns(status_worksheet, ref_df)
@@ -328,9 +339,17 @@ def main():
             df_worksheet.set_column(first_col=4, last_col=4, width=90, cell_format=text_align_format)
             df_worksheet.set_column(first_col=5, last_col=5, width=40, cell_format=text_align_format)
             df_worksheet.set_column(first_col=6, last_col=6, width=40, cell_format=text_align_format)
-            df_worksheet.set_column(first_col=7, last_col=7, width=95, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=7, last_col=7, width=10, cell_format=text_align_format)
+            # highlight cells color when similiarity exceed its defined threshold
+            similiarity_TH = 20
+            df_worksheet.conditional_format(1, 7, df.shape[0], 7,
+                                            {'type': 'cell',
+                                             'criteria': '>=',
+                                             'value': similiarity_TH,
+                                             'format': greenBG_whiteTEXT})
             df_worksheet.freeze_panes(1, 0)
             df_worksheet.set_zoom(80)
+            df_worksheet.autofilter(0, 0, df.shape[0], df.shape[1])
 
             # assign worksheet "pivot_datasheet" variable name as "pivot_worksheet"
             pivot_worksheet = writer.sheets['pivot_datasheet']
@@ -340,6 +359,7 @@ def main():
             pivot_worksheet.set_column(first_col=2, last_col=(found_count + 1)*2, width=50, cell_format=text_align_format)
             pivot_worksheet.freeze_panes(3, 2)
             pivot_worksheet.set_zoom(80)
+            pivot_worksheet.autofilter(1, 0, pivot.shape[0], pivot.shape[1] + 1)
 
             # assign worksheet "pivot1_datasheet" variable name as "pivot1_worksheet"
             pivot1_worksheet = writer.sheets['pivot1_datasheet']
@@ -349,6 +369,7 @@ def main():
             pivot1_worksheet.set_column(first_col=2, last_col=found_count + 1, width=110, cell_format=text_align_format)
             pivot1_worksheet.freeze_panes(1, 2)
             pivot1_worksheet.set_zoom(80)
+            pivot1_worksheet.autofilter(0, 0, pivot1.shape[0], pivot1.shape[1] + 1)
 
             if (os.path.isfile(spec_file) == True):
                 # assign worksheet "spec" variable name as "spec_worksheet"
@@ -358,6 +379,7 @@ def main():
                 # autosize_excel_columns(spec_worksheet, spec_df)
                 spec_worksheet.freeze_panes(1, 1)
                 spec_worksheet.set_zoom(80)
+                spec_worksheet.autofilter(0, 0, spec_df.shape[0], spec_df.shape[1])
 
             writer.save()
 
