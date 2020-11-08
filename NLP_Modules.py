@@ -28,9 +28,11 @@ def get_text_similiarity(ref_text, query_text, dummy_sentence):
     tf_idf = gensim.models.TfidfModel(corpus)
 
     '''quantify % similiarity of a text string to the reference text string '''
-    sims = gensim.similarities.Similarity('/Users/YewLoung/PycharmProjects/SE_Datasheet_Scrape/Index_Matrix',
-                                          corpus=tf_idf[corpus],
-                                          num_features=len(unique_word_dictionary))
+    sims = gensim.similarities.SparseMatrixSimilarity(corpus=tf_idf[corpus], num_features=len(unique_word_dictionary))
+
+    #sims = gensim.similarities.Similarity('/Users/YewLoung/PycharmProjects/SE_Datasheet_Scrape/Index_Matrix',
+    #                                      corpus=tf_idf[corpus],
+    #                                      num_features=len(unique_word_dictionary))
 
     query_sentences_tokens = LineTokenizer().tokenize(query_text)  # tokenize sentences by new line
     query_unique_sentences_tokens = np.unique(query_sentences_tokens).tolist()  # remove duplicate tokenized sentences
@@ -46,10 +48,8 @@ def get_text_similiarity(ref_text, query_text, dummy_sentence):
     query_sentence_tf_idf = tf_idf[query_sentence_bow]
 
     sum_of_sims = (np.sum(sims[query_sentence_tf_idf], dtype=np.float32))
+    max_of_sims = round(np.amax(sims[query_sentence_tf_idf]), 1)
     percentage_of_similarity = round(float((sum_of_sims / len(create_sentences_list)) * 100))
 
-    return percentage_of_similarity
-
-
-#print(get_text_similiarity('Cadmiumfree', 'Cadmiumfree'))
+    return percentage_of_similarity, max_of_sims
 

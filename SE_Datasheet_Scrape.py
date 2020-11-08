@@ -259,8 +259,8 @@ def main():
                 print('\n--- Compare similarity of tabulated datasheet value vs specification value ---')
                 for index, row in df.iterrows():
                     percent_similiarity = get_text_similiarity(row['Spec_Data'], row['Value'], 'xxxxx')
-                    df.loc[index, 'Similiarity'] = percent_similiarity
-                    #print(index, ':', row['Spec_Data'], ',', row['Value'], '-->', percent_similiarity)
+                    df.loc[index, 'Similiarity'] = percent_similiarity[0]
+                    #print(index, ':', row['Spec_Data'], ',', row['Value'], '-->', percent_similiarity[1])
 
             # generate pivot table, put 'Value' for each 'Reference' arranged into column
             if (os.path.isfile(spec_file) == True):
