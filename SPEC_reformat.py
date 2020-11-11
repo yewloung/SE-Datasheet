@@ -36,6 +36,20 @@ sample_file = r'spec_format.xlsx'
 #pd.set_option('display.width', None)
 #pd.set_option('display.max_colwidth', -1)
 
+def get_param_dict(sample_file):
+    param_df = pd.read_excel(sample_file, sheet_name='param_lib', header=0)
+    param_df.fillna(0, inplace=True)
+    param_df.to_string()
+
+    pivot = param_df.pivot_table(index=['ID', 'Param'],
+                                 values=['Param'],
+                                 aggfunc='count')
+
+    pivot_REINDEX = pivot.reset_index()
+    pivot_DICT = {k: v.tolist() for k, v in pivot_REINDEX.groupby('ID')['Param']}
+    return pivot_DICT
+
+
 def get_sample_spec():
     sample_spec_df = pd.read_excel(sample_file, header=None)
     print('---------------- Example of Original Product Specification Format You Should First Develop ----------------')
@@ -182,6 +196,7 @@ def main():
 
     if os.path.isfile(input_file) == True:
         df = pd.ExcelFile(input_file)  # read product spec.xlsx
+        param_DICT = get_param_dict(sample_file)  # convert spec parameters to dictionary key
 
         # dictionary holder to hold data read from product spec.xlsx
         sheet_to_df_map = {}
@@ -296,6 +311,13 @@ def main():
                     ref = str(sheet_to_df_map[sheet_name].columns[i])
                     for y in range(sheet_to_df_map[sheet_name].shape[0]):
                         param = sheet_to_df_map[sheet_name].astype(str).iloc[y, param_col]
+
+                        # convert actual param string to param dictionary key
+                        for key, value in param_DICT.items():
+                            for j in range(len(value)):
+                                if param == value[j]:
+                                    param = '_' + str(key)
+
                         param_id.append(ref + param)
                         final_count = final_count - 1
                         print(final_count, ref + param)
@@ -314,7 +336,12 @@ def main():
             final_df2 = final_df.groupby(['Param_ID'])['Value'].apply('\n'.join).reset_index()
 
             ''' -----------------------------  export data frame to excel operation   ------------------------------ '''
-            writer = pd.ExcelWriter(output_file, engine='xlsxwriter')  # associated panda to xlsxwriter engine
+            writer = pd.ExcelWriter(output_file,
+                                    engine='xlsxwriter',
+                                    options={'strings_to_urls': False,
+                                             'strings_to_formulas': False,
+                                             'strings_to_numbers': False}
+                                    )  # associated panda to xlsxwriter engine
 
             # create 'spec' worksheet to hold all spec data for all references facilitating look up
             final_df.to_excel(writer, index=False, header=True, sheet_name='spec')

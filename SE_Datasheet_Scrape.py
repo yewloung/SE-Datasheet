@@ -41,6 +41,7 @@ input_file = r'ref.xlsx'
 output_file = r'SE_web_datasheet.xlsx'
 spec_file = r'SE_spec.xlsx'
 spec_worksheet = 'spec2'
+sample_file = r'spec_format.xlsx'
 similiarity_TH = 20
 
 # function to deal with excel formating
@@ -122,6 +123,19 @@ def get_other_url(default_url_format):
             exit()
         else:
             other_url_list.append(other_url)
+
+def get_param_dict(sample_file):
+    param_df = pd.read_excel(sample_file, sheet_name='param_lib', header=0)
+    param_df.fillna(0, inplace=True)
+    param_df.to_string()
+
+    pivot = param_df.pivot_table(index=['ID', 'Param'],
+                                 values=['Param'],
+                                 aggfunc='count')
+
+    pivot_REINDEX = pivot.reset_index()
+    pivot_DICT = {k: v.tolist() for k, v in pivot_REINDEX.groupby('ID')['Param']}
+    return pivot_DICT
 
 # function to scrape the web data base on given url
 def get_web_datasheet(url):
@@ -206,6 +220,7 @@ def main():
         # read ref.xlsx, expect reference name must be put at col 1
         ref_df = pd.read_excel(input_file, header=None)
         ref_status_df = pd.DataFrame()
+        param_DICT = get_param_dict(sample_file)  # convert spec parameters to dictionary key
 
         count_scraped_url = 0
         if (ref_df.empty != True):
@@ -247,7 +262,16 @@ def main():
             df['Value'] = df['Value'].str.replace('|', '\n')
 
             # add param id information
-            df['Param_ID'] = df['Reference'] + df['Parameters']
+            df['Temp_Parameters'] = df['Parameters']
+            for i in range(len(df)):
+                # convert actual param string to param dictionary key
+                for key, value in param_DICT.items():
+                    for j in range(len(value)):
+                        if df.loc[i, 'Temp_Parameters'] == value[j]:
+                            df.loc[i, 'Temp_Parameters'] = '_' + str(key)
+
+            df['Param_ID'] = df['Reference'] + df['Temp_Parameters']
+            # df['Param_ID'] = df['Reference'] + df['Parameters']
 
             if (os.path.isfile(spec_file) == True):
                 spec_df = pd.read_excel(spec_file, sheet_name=spec_worksheet)
@@ -295,7 +319,12 @@ def main():
             #print(pivot1)
 
             ''' --------------------  export data frame to excel operation   -------------------- '''
-            writer = pd.ExcelWriter(output_file, engine='xlsxwriter')  # associated panda to xlsxwriter engine
+            writer = pd.ExcelWriter(output_file,
+                                    engine='xlsxwriter',
+                                    options={'strings_to_urls': False,
+                                             'strings_to_formulas': False,
+                                             'strings_to_numbers': False}
+                                    )  # associated panda to xlsxwriter engine
 
             # update status of web scrape to "status" worksheet
             ref_status_df.to_excel(writer, index=True, header=False, sheet_name='status')
