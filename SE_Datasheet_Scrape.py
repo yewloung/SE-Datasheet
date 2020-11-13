@@ -9,11 +9,12 @@ import os.path
 import sys
 import keyboard
 import styleframe
+from collections import Counter
 from NLP_Modules import get_text_similiarity
 
 # define list holders to store scraped data
 app_name = 'SE_Datasheet_Scrape'
-version = 'V1.0'
+version = 'V2.0'
 author = 'YL Liew'
 default_url_format = 'https://www.se.com/ww/en/product/<ref>/'
 additional_url_format = ['https://www.se.com/us/en/product/<ref>/',
@@ -54,6 +55,24 @@ def autosize_excel_columns_df(worksheet, df, offset=0):
 def autosize_excel_columns(worksheet, df):
     autosize_excel_columns_df(worksheet, df.index.to_frame())
     autosize_excel_columns_df(worksheet, df, offset=df.index.nlevels)
+
+# Program to find most frequent element in a list
+def most_frequent(List):
+    occurence_count = Counter(List)
+    return occurence_count.most_common(1)[0][0]
+
+# function to get unique values
+def unique(listArray):
+    # intilize a null list
+    unique_list = []
+
+    # traverse for all elements
+    for x in listArray:
+        # check if exists in unique_list or not
+        if x not in unique_list:
+            unique_list.append(x)
+            # print list
+    return unique_list
 
 def get_startup_message():
     if (os.path.isfile(spec_file) == True):
@@ -224,7 +243,7 @@ def main():
 
         count_scraped_url = 0
         if (ref_df.empty != True):
-            refs = ref_df[0]  # put all the commercial reference into list
+            refs = ref_df[0].astype(str)  # put all the commercial reference into list
             for i, ref in enumerate(refs):
                 for j, other_url in enumerate(other_urls):
                     count_scraped_url = count_scraped_url + 1
@@ -286,14 +305,18 @@ def main():
                     df.loc[index, 'Similiarity'] = percent_similiarity[0]
                     #print(index, ':', row['Spec_Data'], ',', row['Value'], '-->', percent_similiarity[1])
 
+                df['X_Correction'] = ''
+
+            ''' --------------------------------------------------------------------------------------------------- '''
             # generate pivot table, put 'Value' for each 'Reference' arranged into column
             if (os.path.isfile(spec_file) == True):
                 pivot = df.pivot_table(index=['Section', 'Parameters'],
                                        columns=['Reference'],
-                                       values=['Value', 'Spec_Data', 'Similiarity'],
+                                       values=['Value', 'Spec_Data', 'Similiarity', 'X_Correction'],
                                        aggfunc={'Value': lambda x: ' '.join(x),
                                                 'Spec_Data': lambda x: ' '.join(x),
-                                                'Similiarity': lambda x: x})
+                                                'Similiarity': lambda x: x,
+                                                'X_Correction': lambda x: x})
             else:
                 pivot = df.pivot_table(index=['Section', 'Parameters'],
                                        columns=['Reference'],
@@ -301,22 +324,68 @@ def main():
                                        aggfunc={'Value': lambda x: ' '.join(x)})
 
             pivot = pivot.swaplevel(0, 1, axis=1).sort_index(axis=1)  # swap column levels
+            pivot.insert(loc=0, column='All_Cnt', value=10)
+            pivot.insert(loc=1, column='Uniq_Cnt', value=100)
+            pivot.insert(loc=2, column='Most_Cnt', value=200)
+            pivot.insert(loc=3, column='Most_Freq_Val', value=pivot.index.get_level_values(1))
+
+            # slide the pivot dataframe base on specified column
+            #idx = pd.IndexSlice
+            #all_values = pivot.loc[:, idx[:, 'Value']]
+            #all_specs = pivot.loc[:, idx[:, 'Spec_Data']]
+
+            ''' --------------------------------------------------------------------------------------------------- '''
+            count_no_item_in_list = lambda u: len(u)
+            count_no_of_unique_item_in_list = lambda v: len(v.unique())
+            count_no_of_most_freq_item_in_list = lambda w: w.tolist().count(most_frequent(w))
+            #count_no_of_most_freq_item_in_list = lambda w: w.count(most_frequent(w))
+            #count_no_of_most_freq_item_in_list = lambda w: dict((i, w.count(i)) for i in set(w))
+            join_all_item_in_list_byNewLine = lambda x: '\n'.join(x)
+            join_all_unique_item_in_list_byNewLine = lambda y: '|\n'.join(map(str, unique(y)))
+            most_freq_item_in_list = lambda z: most_frequent(z)
+
+            count_no_item_in_list.__name__ = 'all_item_count'
+            count_no_of_unique_item_in_list.__name__ = 'unique_item_count'
+            count_no_of_most_freq_item_in_list.__name__ = 'most_freq_item_count'
+            join_all_item_in_list_byNewLine.__name__ = 'all_item_list'
+            join_all_unique_item_in_list_byNewLine.__name__ = 'all_unique_item_list'
+            most_freq_item_in_list.__name__ = 'most_freq_item'
+
+            list_of_funcs = [count_no_item_in_list,
+                             count_no_of_unique_item_in_list,
+                             count_no_of_most_freq_item_in_list,
+                             join_all_item_in_list_byNewLine,
+                             join_all_unique_item_in_list_byNewLine,
+                             most_freq_item_in_list]
 
             pivot1 = df.pivot_table(index=['Section', 'Parameters'],
                                     values=['Value'],
-                                    aggfunc=lambda x: '\n'.join(x))
+                                    aggfunc=list_of_funcs
+                                    )
+            pivot1['tempAll_Cnt'] = pivot1['all_item_count']
+            pivot1['tempUniq_Cnt'] = pivot1['unique_item_count']
+            pivot1['tempMost_Cnt'] = pivot1['most_freq_item_count']
+            pivot1['tempMost_Freq_Val'] = pivot1['most_freq_item']
 
-            #pivot1 = df.pivot_table(index=['Section', 'Parameters', 'Value'],
+            #pivot1 = df.pivot_table(index=['Section', 'Parameters'],
             #                        values=['Value'],
-            #                        aggfunc='count')
+            #                        aggfunc={lambda v: most_frequent(v),
+            #                                 lambda w: '\n'.join(w),
+            #                                 lambda x: len(x.unique()),
+            #                                 lambda y: len(y),
+            #                                 lambda z: '|\n'.join(map(str, unique(z)))}
+            #                        )
 
-            #pivot1 = df.pivot_table(index=['Section', 'Parameters', 'Value'],
-            #                        columns=['Reference'],
-            #                        values=['Reference'],
-            #                        aggfunc='count',
-            #                        fill_value=0)
+            ''' -------------------------  map pivot1 data to pivot   --------------------------- '''
+            pivot['All_Cnt'] = pivot1['tempAll_Cnt']
+            pivot['Uniq_Cnt'] = pivot1['tempUniq_Cnt']
+            pivot['Most_Cnt'] = pivot1['tempMost_Cnt']
+            pivot['Most_Freq_Val'] = pivot1['tempMost_Freq_Val']
 
-            #print(pivot1)
+            pivot1.drop(('tempAll_Cnt', ''), axis=1, inplace=True)  # drop multilevel indexed column
+            pivot1.drop(('tempUniq_Cnt', ''), axis=1, inplace=True)  # drop multilevel indexed column
+            pivot1.drop(('tempMost_Cnt', ''), axis=1, inplace=True)  # drop multilevel indexed column
+            pivot1.drop(('tempMost_Freq_Val', ''), axis=1, inplace=True)  # drop multilevel indexed column
 
             ''' --------------------  export data frame to excel operation   -------------------- '''
             writer = pd.ExcelWriter(output_file,
@@ -354,9 +423,21 @@ def main():
             text_align_format.set_align('top')
             text_align_format.set_align('left')
 
-            greenBG_whiteTEXT = workbook.add_format()  # Add color format
+            greenBG_whiteTEXT = workbook.add_format()  # Add color format green cell white text
             greenBG_whiteTEXT.set_font_color('white')
             greenBG_whiteTEXT.set_bg_color('green')
+
+            yellowBG_blackTEXT = workbook.add_format()  # Add color format yellow cell black text
+            yellowBG_blackTEXT.set_font_color('black')
+            yellowBG_blackTEXT.set_bg_color('yellow')
+
+            blueBG_whiteTEXT = workbook.add_format()  # Add color format blue cell white text
+            blueBG_whiteTEXT.set_font_color('white')
+            blueBG_whiteTEXT.set_bg_color('cyan')
+
+            greyBG_whiteTEXT = workbook.add_format()  # Add color format blue cell white text
+            greyBG_whiteTEXT.set_font_color('white')
+            greyBG_whiteTEXT.set_bg_color('gray')
 
             ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "status" variable name as "status_worksheet"
@@ -369,12 +450,13 @@ def main():
             df_worksheet = writer.sheets['raw_datasheet']
             df_worksheet.set_column('B:Z', 20, text_align_format)
             autosize_excel_columns(df_worksheet, df)
-            df_worksheet.set_column(first_col=4, last_col=4, width=90, cell_format=text_align_format)
-            df_worksheet.set_column(first_col=5, last_col=5, width=40, cell_format=text_align_format)
-            df_worksheet.set_column(first_col=6, last_col=6, width=40, cell_format=text_align_format)
-            df_worksheet.set_column(first_col=7, last_col=7, width=10, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=4, last_col=4, width=80, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=5, last_col=5, width=15, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=6, last_col=6, width=25, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=7, last_col=7, width=80, cell_format=text_align_format)
+            df_worksheet.set_column(first_col=8, last_col=8, width=10, cell_format=text_align_format)
             # highlight cells color when similiarity exceed its defined threshold
-            df_worksheet.conditional_format(1, 7, df.shape[0], 7,
+            df_worksheet.conditional_format(1, 8, df.shape[0], 8,
                                             {'type': 'cell',
                                              'criteria': '>=',
                                              'value': similiarity_TH,
@@ -391,13 +473,17 @@ def main():
             col_widths = {}
             col_widths[0] = 20
             col_widths[1] = 40
+            col_widths[2] = 10
+            col_widths[3] = 10
+            col_widths[4] = 10
+            col_widths[5] = 50
 
-            for i in range(2, pivot.shape[1] + 2, 1):
+            for i in range(5, pivot.shape[1] + 2, 1):
                 col_widths[i] = 50
 
             if (os.path.isfile(spec_file) == True):
                 print('--- Compare similarity of pivoted datasheet value vs specification value ---')
-                for i in range(2, pivot.shape[1] + 2, 3):
+                for i in range(6, pivot.shape[1] + 2, 4):  # specific set smaller col width for similarity col
                     col_widths[i] = 5
                     pivot_worksheet.conditional_format(2, i, df.shape[0], i,
                                                        {'type': 'cell',
@@ -405,13 +491,36 @@ def main():
                                                         'value': similiarity_TH,
                                                         'format': greenBG_whiteTEXT})
 
+                print('--- Highlight cell color of datasheet value that appear the most ---')
+                most_freq_list = pivot['Most_Freq_Val']
+                #print(len(most_freq_list), pivot.shape[0], most_freq_list[0])
+                for col in range(8, pivot.shape[1] + 2, 4):
+                    for row in range(3, pivot.shape[0] + 3, 1):
+                        # color empty cells of all value columns
+                        pivot_worksheet.conditional_format(row, col, row, col,
+                                                           {'type': 'blanks',
+                                                            'format': greyBG_whiteTEXT})
+
+                        #pivot_worksheet.conditional_format(row, col, row, col,
+                        #                                   {'type': 'cell',
+                        #                                    'criteria': 'equal to',
+                        #                                    'value': '"' + most_freq_list[row - 3] + '"',
+                        #                                    'format': yellowBG_blackTEXT})
+
             for col_num, width in col_widths.items():
                 pivot_worksheet.set_column(first_col=col_num,
                                            last_col=col_num,
                                            width=width,
                                            cell_format=text_align_format)
 
-            pivot_worksheet.freeze_panes(3, 2)
+            for col in range(6, pivot.shape[1] + 2, 1):
+                for row in range(3, pivot.shape[0] + 3, 1):
+                    # color empty cells of all value columns
+                    pivot_worksheet.conditional_format(row, col, row, col,
+                                                       {'type': 'blanks',
+                                                        'format': greyBG_whiteTEXT})
+
+            pivot_worksheet.freeze_panes(3, 6)
             pivot_worksheet.set_zoom(80)
             pivot_worksheet.autofilter(1, 0, pivot.shape[0], pivot.shape[1] + 1)
 
@@ -420,7 +529,10 @@ def main():
             pivot1_worksheet = writer.sheets['pivot1_datasheet']
             pivot1_worksheet.set_column('A:A', 20, text_align_format)
             pivot1_worksheet.set_column('B:B', 40, text_align_format)
-            pivot1_worksheet.set_column(first_col=2, last_col=pivot1.shape[1] + 1, width=110, cell_format=text_align_format)
+            pivot1_worksheet.set_column('C:C', 18, text_align_format)
+            pivot1_worksheet.set_column('D:D', 18, text_align_format)
+            pivot1_worksheet.set_column('E:E', 18, text_align_format)
+            pivot1_worksheet.set_column(first_col=5, last_col=pivot1.shape[1] + 1, width=50, cell_format=text_align_format)
             pivot1_worksheet.freeze_panes(1, 2)
             pivot1_worksheet.set_zoom(80)
             pivot1_worksheet.autofilter(0, 0, pivot1.shape[0], pivot1.shape[1] + 1)
