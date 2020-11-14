@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import validators
 import re
 import xlsxwriter
+from xlsxwriter.utility import xl_rowcol_to_cell
 import pandas as pd
 import time
 import os.path
@@ -19,10 +20,9 @@ author = 'YL Liew'
 default_url_format = 'https://www.se.com/ww/en/product/<ref>/'
 additional_url_format = ['https://www.se.com/us/en/product/<ref>/',
                          'https://www.se.com/in/en/product/<ref>/',
-                         'https://www.se.com/fr/en/product/<ref>/',
                          'https://www.se.com/fr/fr/product/<ref>/',
-                         'https://www.schneider-electric.cn/zh/product/<ref>/',
-                         'https://www.schneider-electric.cn/en/product/<ref>/']
+                         'https://www.schneider-electric.cn/zh/product/<ref>/']
+
 other_urls = []
 reference_data = []
 range_data = []
@@ -437,12 +437,22 @@ def main():
 
             greyBG_whiteTEXT = workbook.add_format()  # Add color format blue cell white text
             greyBG_whiteTEXT.set_font_color('white')
-            greyBG_whiteTEXT.set_bg_color('gray')
+            greyBG_whiteTEXT.set_bg_color('silver')
+
+            redTEXT = workbook.add_format()  # Add color format red text
+            redTEXT.set_font_color('red')
+
+            addBORDER = workbook.add_format()  # Add border
+            addBORDER.set_border(1)
 
             ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "status" variable name as "status_worksheet"
             status_worksheet = writer.sheets['status']
             autosize_excel_columns(status_worksheet, ref_df)
+            status_worksheet.set_column(first_col=0, last_col=0, width=5)
+            status_worksheet.set_column(first_col=1, last_col=1, width=20)
+            status_worksheet.set_column(first_col=2, last_col=2, width=50)
+            status_worksheet.set_column(first_col=3, last_col=3, width=15)
             status_worksheet.set_zoom(80)
 
             ''' --------------------------------------------------------------------------------------------------- '''
@@ -494,35 +504,44 @@ def main():
                 print('--- Highlight cell color of datasheet value that appear the most ---')
                 most_freq_list = pivot['Most_Freq_Val']
                 #print(len(most_freq_list), pivot.shape[0], most_freq_list[0])
+
+                # color non empty cells of all X_Correction columns as Red text
+                for col in range(9, pivot.shape[1] + 2, 4):
+                    pivot_worksheet.conditional_format(first_row=3, first_col=col,
+                                                       last_row=pivot.shape[0] + 2, last_col=col,
+                                                       options={'type': 'no_blanks', 'format': redTEXT})
+
+                # color value of each ref which is same as most frequent value in yellow
                 for col in range(8, pivot.shape[1] + 2, 4):
                     for row in range(3, pivot.shape[0] + 3, 1):
-                        # color empty cells of all value columns
-                        pivot_worksheet.conditional_format(row, col, row, col,
-                                                           {'type': 'blanks',
-                                                            'format': greyBG_whiteTEXT})
+                        ref_value = xl_rowcol_to_cell(row, 5, col_abs=True)  # convert cell coordinate to A1, A2...
+                        comp_value = xl_rowcol_to_cell(row, col)  # convert cell coordinate to A1, A2...
+                        criteria_syntax = '=(' + comp_value + '=' + ref_value + ')'
+                        pivot_worksheet.conditional_format(first_row=row, first_col=col,
+                                                           last_row=row, last_col=col,
+                                                           options={'type': 'formula',
+                                                                    'criteria': criteria_syntax,
+                                                                    'format': yellowBG_blackTEXT})
 
-                        #pivot_worksheet.conditional_format(row, col, row, col,
-                        #                                   {'type': 'cell',
-                        #                                    'criteria': 'equal to',
-                        #                                    'value': '"' + most_freq_list[row - 3] + '"',
-                        #                                    'format': yellowBG_blackTEXT})
-
+            # set all columns widths base on defined col_widths array defined
             for col_num, width in col_widths.items():
-                pivot_worksheet.set_column(first_col=col_num,
-                                           last_col=col_num,
-                                           width=width,
+                pivot_worksheet.set_column(first_col=col_num, last_col=col_num, width=width,
                                            cell_format=text_align_format)
 
-            for col in range(6, pivot.shape[1] + 2, 1):
-                for row in range(3, pivot.shape[0] + 3, 1):
-                    # color empty cells of all value columns
-                    pivot_worksheet.conditional_format(row, col, row, col,
-                                                       {'type': 'blanks',
-                                                        'format': greyBG_whiteTEXT})
+            # color empty cells of all columns to grey
+            pivot_worksheet.conditional_format(first_row=3, first_col=6,
+                                               last_row=pivot.shape[0] + 2, last_col=pivot.shape[1] + 1,
+                                               options={'type': 'blanks', 'format': greyBG_whiteTEXT})
+
+            # add border to the whole table
+            pivot_worksheet.conditional_format(first_row=0, first_col=2,
+                                               last_row=pivot.shape[0] + 2, last_col=pivot.shape[1] + 1,
+                                               options={'type': 'no_errors', 'format': addBORDER})
 
             pivot_worksheet.freeze_panes(3, 6)
             pivot_worksheet.set_zoom(80)
             pivot_worksheet.autofilter(1, 0, pivot.shape[0], pivot.shape[1] + 1)
+            pivot_worksheet.hide_gridlines(2)
 
             ''' --------------------------------------------------------------------------------------------------- '''
             # assign worksheet "pivot1_datasheet" variable name as "pivot1_worksheet"
