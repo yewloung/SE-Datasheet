@@ -511,8 +511,20 @@ def main():
                                                        last_row=pivot.shape[0] + 2, last_col=col,
                                                        options={'type': 'no_blanks', 'format': redTEXT})
 
-                # color value of each ref which is same as most frequent value in yellow
-                for col in range(8, pivot.shape[1] + 2, 4):
+                # color value of each ref which is same as most frequent value in yellow (when with SE_Spec)
+                for col in range(8, pivot.shape[1] + 2, 4):  # start from col 8, step of 4 cols
+                    for row in range(3, pivot.shape[0] + 3, 1):
+                        ref_value = xl_rowcol_to_cell(row, 5, col_abs=True)  # convert cell coordinate to A1, A2...
+                        comp_value = xl_rowcol_to_cell(row, col)  # convert cell coordinate to A1, A2...
+                        criteria_syntax = '=(' + comp_value + '=' + ref_value + ')'
+                        pivot_worksheet.conditional_format(first_row=row, first_col=col,
+                                                           last_row=row, last_col=col,
+                                                           options={'type': 'formula',
+                                                                    'criteria': criteria_syntax,
+                                                                    'format': yellowBG_blackTEXT})
+            else:
+                # color value of each ref which is same as most frequent value in yellow (when without SE_Spec)
+                for col in range(6, pivot.shape[1] + 2, 1):  # start from col 6, step of 1 col
                     for row in range(3, pivot.shape[0] + 3, 1):
                         ref_value = xl_rowcol_to_cell(row, 5, col_abs=True)  # convert cell coordinate to A1, A2...
                         comp_value = xl_rowcol_to_cell(row, col)  # convert cell coordinate to A1, A2...
