@@ -11,7 +11,7 @@ import sys
 import keyboard
 import styleframe
 from collections import Counter
-from NLP_Modules import get_text_similiarity
+#from NLP_Modules import get_text_similiarity
 
 # define list holders to store scraped data
 app_name = 'SE_Datasheet_Scrape'
@@ -301,8 +301,9 @@ def main():
                 # check data sheet value vs spec value similiarity
                 print('\n--- Compare similarity of tabulated datasheet value vs specification value ---')
                 for index, row in df.iterrows():
-                    percent_similiarity = get_text_similiarity(row['Spec_Data'], row['Value'], 'xxxxx')
-                    df.loc[index, 'Similiarity'] = percent_similiarity[0]
+                    #percent_similiarity = get_text_similiarity(row['Spec_Data'], row['Value'], 'xxxxx')
+                    #df.loc[index, 'Similiarity'] = percent_similiarity[0]
+                    df.loc[index, 'Similiarity'] = 0
                     #print(index, ':', row['Spec_Data'], ',', row['Value'], '-->', percent_similiarity[1])
 
                 df['X_Correction'] = ''
